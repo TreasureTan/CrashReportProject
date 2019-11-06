@@ -622,7 +622,7 @@ public class YstenLogReport {
         if (mHandler != null) {
             mHandler.removeMessages(CMD_START_REPORT);
             Random random = new Random();
-            int randomReport = random.nextInt(30 * 1000);
+            int randomReport = random.nextInt(300 * 1000);
             Log.i(TAG,randomReport+"毫秒后开始上报数据");
             ///发送日志上报
             mHandler.sendEmptyMessageDelayed(CMD_START_REPORT, randomReport);
