@@ -16,7 +16,6 @@ import com.ysten.ystenreport.save.ISave;
 import com.ysten.ystenreport.utils.LogUtil;
 import com.ysten.ystenreport.utils.ReportChangeUtil;
 
-import org.apache.commons.lang.StringEscapeUtils;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -42,6 +41,7 @@ public class CrashWriter extends BaseSaver {
     private DateFormat formatter = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss");
     private long maxReport = 5000;
     private int isStart = 0;
+
     public CrashWriter(Context context, String logRootDirectory) {
         super(context, logRootDirectory);
         mCrashPath = logRootDirectory;
@@ -61,12 +61,12 @@ public class CrashWriter extends BaseSaver {
 //		writeCrashReportLocal(ex);
         //是否启动上报
         boolean isReport = checkIsReport();
-        if (!isReport){
+        if (!isReport) {
             return;
         }
-        //是否超过间隔时间
+        //是否小于间隔时间
         boolean passCrashDate = checkPassCrashDate(ISave.TYPE_CRASH);
-        if (!passCrashDate){
+        if (passCrashDate) {
             return;
         }
         //是否启动删除数据策略
@@ -102,21 +102,6 @@ public class CrashWriter extends BaseSaver {
         crashBean.setCrashTime(System.currentTimeMillis() + "");
         crashBean.setIsReport(false);
         DbCore.getDaoSession().getSaveCrashBeanDao().insertOrReplace(crashBean);
-//        try {
-//            List<SaveCrashBean> listCrashs = new ArrayList<>();
-//            for (int j = 1; j < 5; j++) {
-//                SaveCrashBean newBean = new SaveCrashBean();
-//                newBean.setId(System.currentTimeMillis() - j);
-//                newBean.setCrashTime(System.currentTimeMillis()-j + "");
-//                newBean.setIsReport(false);
-//                newBean.setCrashLog(crashBean.getCrashLog());
-//                newBean.setType(crashBean.getType());
-//                listCrashs.add(newBean);
-//            }
-//            DbCore.getDaoSession().getSaveCrashBeanDao().insertOrReplaceInTx(listCrashs);
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//        }
     }
 
 
@@ -139,7 +124,7 @@ public class CrashWriter extends BaseSaver {
         List<SaveCrashBean> list = DbCore.getDaoSession().getSaveCrashBeanDao().queryBuilder().where(SaveCrashBeanDao.Properties.Type.eq(type)).orderDesc(SaveCrashBeanDao.Properties.Id).list();
         if (list != null && list.size() > 0) {
             SaveCrashBean crashBean = list.get(0);
-            if (System.currentTimeMillis() - crashBean.getId() > MAX_SPACE_TIME) {
+            if (System.currentTimeMillis() - crashBean.getId() < MAX_SPACE_TIME) {
                 return true;
             }
         }
@@ -247,10 +232,13 @@ public class CrashWriter extends BaseSaver {
 
     private boolean checkIsReport() {
         List<ReportMaxAndCountBean> list = DbCore.getDaoSession().getReportMaxAndCountBeanDao().queryBuilder().list();
-        if (list != null && list.size() < maxReport && isStart ==1) {
-            return true;
+        if (list != null && list.size() > 0 && isStart == 1) {
+            if (list.get(0).getReportSuccessCount() < maxReport) {
+                return true;
+            }
+
         }
-        return  false;
+        return false;
     }
 
 

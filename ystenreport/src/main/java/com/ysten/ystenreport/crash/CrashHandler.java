@@ -79,14 +79,14 @@ public class CrashHandler implements Thread.UncaughtExceptionHandler {
         LogUtil.i(TAG, "in init2!");
         String nativeLogUtilFile = mRootPath + "/native_log";
         mNativeLogFile = new File(nativeLogUtilFile);
-//        try {
+        try {
             SoLoader.loadLibrary("libbreakpad_client");
             init(nativeLogUtilFile, System.currentTimeMillis() / 1000);
             mNativeLoaded = true;
-//        } catch (Error e) {
-//            mNativeLoaded = false;
-//            e.printStackTrace();
-//        }
+        } catch (Error e) {
+            mNativeLoaded = false;
+            e.printStackTrace();
+        }
     }
 
     public void clearNativeReport() {

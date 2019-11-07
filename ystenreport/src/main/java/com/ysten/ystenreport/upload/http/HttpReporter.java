@@ -11,21 +11,26 @@ import com.ysten.ystenreport.upload.ILogUpload;
 import com.ysten.ystenreport.utils.LogUtil;
 import com.ysten.ystenreport.utils.NetUtil;
 
-import org.apache.commons.lang.StringEscapeUtils;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.Map;
+import java.util.zip.GZIPOutputStream;
+
+import javax.security.auth.callback.Callback;
 
 public class HttpReporter implements ILogUpload {
     private static final String TAG = "Report_httpReporter";
@@ -47,6 +52,7 @@ public class HttpReporter implements ILogUpload {
         }
         HttpURLConnection hc = null; // http连接器
         BufferedOutputStream requestBos = null;// byte输出流，用来读取服务器返回的信息
+
         BufferedReader responseReader = null;
         BufferedWriter writer = null;
         try {
@@ -55,6 +61,8 @@ public class HttpReporter implements ILogUpload {
 
             hc.setRequestProperty("Connection", "Keep-Alive");
             hc.setRequestProperty("Cache-Control", "no-cache");
+            hc.setRequestProperty("Accept-Encoding", "gzip");
+            hc.setRequestProperty("Content-Encoding", "gzip");
             hc.setConnectTimeout(TIME_OUT);
             hc.setReadTimeout(TIME_OUT);
             hc.setDoOutput(true);
@@ -63,6 +71,10 @@ public class HttpReporter implements ILogUpload {
             hc.setRequestMethod("POST");
             hc.setRequestProperty("Content-Type", "application/json;charset=utf-8");//设置参数类型是json格式
             hc.connect();
+
+            requestBos = new BufferedOutputStream(hc.getOutputStream());
+
+
             CrashBean crashBean = new Gson().fromJson(content, CrashBean.class);
             reportForHttpBean.setData(crashBean);
             JSONObject jsonCrash = new JSONObject();
@@ -93,17 +105,22 @@ public class HttpReporter implements ILogUpload {
                 json.put("app_id", reportForHttpBean.getApp_id());
                 json.put("network", reportForHttpBean.getNetwork());
                 json.put("data", jsonCrash);
-//                String body = StringEscapeUtils.unescapeJava(json.toString());
-
-//                String json = new Gson().toJson(reportForHttpBean);
                 String body = json.toString();
+                byte[] zipBody = GzipCompress(body, "UTF-8");
+
+                requestBos.write(zipBody);
+                requestBos.flush();
+                requestBos.close();
                 Log.i(TAG, "body=" + body);
-                writer = new BufferedWriter(new OutputStreamWriter(hc.getOutputStream(), "UTF-8"));
-                writer.write(body);
-                writer.close();
+//                writer = new BufferedWriter(new OutputStreamWriter(hc.getOutputStream(), "UTF-8"));
+//                writer.write(body);
+//                writer.close();
                 int resultCode = hc.getResponseCode();
+
                 LogUtil.i(TAG, "sendReport resultCode = " + resultCode);
                 if (HttpURLConnection.HTTP_OK == resultCode) {
+                    LogUtil.i(TAG,"Content-Length="+hc.getRequestProperty("Content-Length"));
+
                     StringBuffer sb = new StringBuffer();
                     String readLine = new String();
                     responseReader = new BufferedReader(new InputStreamReader(hc.getInputStream(), "UTF-8"));
@@ -145,7 +162,7 @@ public class HttpReporter implements ILogUpload {
 
 
     @Override
-    public void sendReportWithFileSync(String urlStr, ReportForHttpBean reportForHttpBean, String file, OnUploadFinishedListener listener) {
+    public void sendReportWithFileSync(String urlStr, ReportForHttpBean reportForHttpBean, String file,byte[] zipAnr, OnUploadFinishedListener listener) {
         if (!NetUtil.isConnected(mContext)) {
             listener.onError("no net");
             return;
@@ -157,8 +174,8 @@ public class HttpReporter implements ILogUpload {
             URL url = new URL(urlStr);
             hc = (HttpURLConnection) url.openConnection();
             hc.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + BOUNDARY);
-            hc.setRequestProperty("Accept-Encoding", "gzip,deflate");
-            hc.setRequestProperty("Content-Encodin", "gzip,deflate");
+            hc.setRequestProperty("Accept-Encoding", "gzip");
+            hc.setRequestProperty("Content-Encoding", "gzip");
             hc.setRequestProperty("Connection", "Keep-Alive");
             hc.setRequestProperty("Charsert", "UTF-8");
             hc.setConnectTimeout(TIME_OUT);
@@ -195,14 +212,26 @@ public class HttpReporter implements ILogUpload {
                         .append("\r\n\r\n");
 
                 requestBos.write(resSB.toString().getBytes("utf-8"));
+                requestBos.write(zipAnr);
 
-                DataInputStream in = new DataInputStream(new FileInputStream(upFile));
+//                ByteArrayOutputStream out = new ByteArrayOutputStream();
+//                DataInputStream in = new DataInputStream(new FileInputStream(upFile));
+                GZIPOutputStream gzip;
                 int bytes = 0;
-                byte[] bufferOut = new byte[1024 * 5];
-                while ((bytes = in.read(bufferOut)) != -1) {
-                    requestBos.write(bufferOut, 0, bytes);
-                }
-                in.close();
+//                try {
+//                    gzip = new GZIPOutputStream(out);
+//                    byte[] bufferOut = new byte[1024 * 5];
+//                    while ((bytes = in.read(bufferOut)) != -1) {
+//                        gzip.write(bufferOut, 0, bytes);
+//
+//                    }
+//                    requestBos.write(out.toByteArray(), 0, bytes);
+//                    gzip.close();
+//                } catch (IOException e) {
+//                    LogUtil.e("gzip compress error.", e.getMessage());
+//                }
+//
+//                in.close();
             }
 
             // 尾
@@ -278,7 +307,6 @@ public class HttpReporter implements ILogUpload {
         try {
             URL url = new URL(urlStr);
             hc = (HttpURLConnection) url.openConnection();
-
             hc.setRequestProperty("Connection", "Keep-Alive");
             hc.setRequestProperty("Cache-Control", "no-cache");
             hc.setConnectTimeout(TIME_OUT);
@@ -289,10 +317,11 @@ public class HttpReporter implements ILogUpload {
             hc.setRequestMethod("POST");
             hc.setRequestProperty("Content-Type", "application/json;charset=utf-8");//设置参数类型是json格式
             hc.connect();
+//            requestBos = new BufferedOutputStream(hc.getOutputStream());
+
 
             if (reportForHttpBean != null) {
                 JSONObject json = new JSONObject();
-
                 json.put("os", reportForHttpBean.getOs());
                 json.put("appver", reportForHttpBean.getAppver());
                 json.put("sdkver", reportForHttpBean.getSdkver());
@@ -300,10 +329,13 @@ public class HttpReporter implements ILogUpload {
                 json.put("model", reportForHttpBean.getModel());
                 json.put("app_id", reportForHttpBean.getApp_id());
                 json.put("network", reportForHttpBean.getNetwork());
-
-                String body = StringEscapeUtils.unescapeJava(json.toString());
-
+                String body = json.toString();
                 Log.i(TAG, "body=" + body);
+//                byte[] zipBody = GzipCompress(body, "UTF-8");
+//                requestBos.write(zipBody);
+//                requestBos.flush();
+//                requestBos.close();
+
                 writer = new BufferedWriter(new OutputStreamWriter(hc.getOutputStream(), "UTF-8"));
                 writer.write(body);
                 writer.close();
@@ -349,5 +381,54 @@ public class HttpReporter implements ILogUpload {
         }
     }
 
+
+    public static byte[] GzipCompress(String str, String encoding) {
+        if (str == null || str.length() == 0) {
+            return null;
+        }
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        GZIPOutputStream gzip;
+        try {
+            gzip = new GZIPOutputStream(out);
+            gzip.write(str.getBytes(encoding));
+            gzip.close();
+        } catch (IOException e) {
+            LogUtil.e("gzip compress error.", e.getMessage());
+        }
+        return out.toByteArray();
+    }
+
+    public interface GzipUploadListener{
+        void onSuccess(byte[] zipAnr);
+        void onFail(String error);
+    }
+
+    @Override
+    public void  GzipUploadFile(String anrFile, GzipUploadListener callback){
+        File upFile = new File(anrFile);
+        try {
+            DataInputStream in = new DataInputStream(new FileInputStream(upFile));
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            GZIPOutputStream gzip;
+            int bytes = 0;
+            try {
+                gzip = new GZIPOutputStream(out);
+                byte[] bufferOut = new byte[1024 * 5];
+                while ((bytes = in.read(bufferOut)) != -1) {
+                    gzip.write(bufferOut, 0, bytes);
+
+                }
+                gzip.close();
+                byte[] gzipAnr = out.toByteArray();
+                callback.onSuccess(gzipAnr);
+            } catch (IOException e) {
+                LogUtil.e("gzip compress error.", e.getMessage());
+                callback.onFail(e.getMessage());
+            }
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+            callback.onFail(e.getMessage());
+        }
+    }
 
 }

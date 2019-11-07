@@ -404,36 +404,49 @@ public class YstenLogReport {
                                         }
                                     }
 
-                                    mUpload.sendReportWithFileSync(ANR_URL, reportForHttpBean, report.getCrashLog(), new ILogUpload.OnUploadFinishedListener() {
+                                    mUpload.GzipUploadFile(report.getCrashLog(), new HttpReporter.GzipUploadListener() {
                                         @Override
-                                        public void onSuccess() {
-                                            LogUtil.i(TAG, "upload anr file success-----");
-                                            tryAnrCount = 0;
-                                            report.setIsReport(true);
-                                            DbCore.getDaoSession().getSaveCrashBeanDao().update(report);
-                                            ///新增策略 记录上报最大值
-                                            updateMaxReportCount();
+                                        public void onSuccess(byte[] zipAnr) {
+                                            if (mUpload!=null){
+                                                mUpload.sendReportWithFileSync(ANR_URL, reportForHttpBean, report.getCrashLog(), zipAnr,new ILogUpload.OnUploadFinishedListener() {
+                                                    @Override
+                                                    public void onSuccess() {
+                                                        LogUtil.i(TAG, "upload anr file success-----");
+                                                        tryAnrCount = 0;
+                                                        report.setIsReport(true);
+                                                        DbCore.getDaoSession().getSaveCrashBeanDao().update(report);
+                                                        ///新增策略 记录上报最大值
+                                                        updateMaxReportCount();
 
+                                                    }
+
+                                                    @Override
+                                                    public void onError(String error) {
+                                                        LogUtil.i(TAG, "upload anr file fail-----");
+                                                    }
+
+                                                    @Override
+                                                    public void tryAgain() {
+                                                        LogUtil.i(TAG, "upload anr file tryAgain-----");
+                                                        ++tryAnrCount;
+                                                        currentTryReportTime = (int) Math.pow(2, tryAnrCount);
+                                                        if (currentTryReportTime >= Max_REPORT_TIME) {
+                                                            currentTryReportTime = Max_REPORT_TIME;
+                                                        }
+                                                        if (mHandler != null) {
+                                                            mHandler.sendEmptyMessageDelayed(RETRY_UPLOAD_ANR, currentTryReportTime);
+                                                        }
+                                                    }
+                                                });
+                                            }
                                         }
 
                                         @Override
-                                        public void onError(String error) {
-                                            LogUtil.i(TAG, "upload anr file fail-----");
-                                        }
-
-                                        @Override
-                                        public void tryAgain() {
-                                            LogUtil.i(TAG, "upload anr file tryAgain-----");
-                                            ++tryAnrCount;
-                                            currentTryReportTime = (int) Math.pow(2, tryAnrCount);
-                                            if (currentTryReportTime >= Max_REPORT_TIME) {
-                                                currentTryReportTime = Max_REPORT_TIME;
-                                            }
-                                            if (mHandler != null) {
-                                                mHandler.sendEmptyMessageDelayed(RETRY_UPLOAD_ANR, currentTryReportTime);
-                                            }
+                                        public void onFail(String error) {
+                                            LogUtil.i(TAG,"GzipUploadFile ="+error);
                                         }
                                     });
+
                                 }
                             });
                         }
@@ -447,7 +460,6 @@ public class YstenLogReport {
          * 检查需要上报的日志 及 状态
          */
         private void checkNeedUploadReport() {
-//            DbCore.getDaoSession().getSaveCrashBeanDao().deleteAll();
             if (isNetAvailable()) {
                 checkCrashLog();
                 checkErrorLog();
@@ -498,6 +510,8 @@ public class YstenLogReport {
          * 初始化域名
          */
         private void getHost() {
+//            DbCore.getDaoSession().getSaveCrashBeanDao().deleteAll();
+//            DbCore.getDaoSession().getReportMaxAndCountBeanDao().deleteAll();
             LogUtil.i(TAG, "try get host...");
             if (!TextUtils.isEmpty(REPORT_HOST)) {
                 REPORT_URL = REPORT_HOST + REPORT_ACTION;

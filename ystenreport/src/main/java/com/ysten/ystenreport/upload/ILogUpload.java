@@ -1,6 +1,7 @@
 package com.ysten.ystenreport.upload;
 
 import com.ysten.ystenreport.bean.ReportForHttpBean;
+import com.ysten.ystenreport.upload.http.HttpReporter;
 
 import java.util.Map;
 
@@ -44,7 +45,7 @@ public interface ILogUpload {
      * @param listener
      */
     public void sendReportWithFileSync(String target, ReportForHttpBean reportForHttpBean,
-                                          String file,OnUploadFinishedListener listener);
+                                          String file,byte[] zipAnr,OnUploadFinishedListener listener);
 
     /**
      * 上传crash
@@ -69,5 +70,19 @@ public interface ILogUpload {
     public void sendReportASync(String urlStr, Map<String, String> heads, String content,
                                 OnUploadFinishedListener onUploadFinishedListener);
 
+    /**
+     * 获取config配置信息
+     * @param urlStr
+     * @param reportForHttpBean
+     * @param listener
+     */
     public void getConfig(String urlStr, ReportForHttpBean reportForHttpBean,ConfigFinishedListener listener);
+
+    /**
+     *  触发gzip协议
+     * @param anrFile
+     * @param callback
+     */
+    public void  GzipUploadFile(String anrFile, HttpReporter.GzipUploadListener callback);
+
 }
