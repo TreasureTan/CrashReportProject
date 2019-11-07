@@ -46,7 +46,7 @@ import java.util.concurrent.Executors;
  * describe:
  */
 public class YstenLogReport {
-    public static final String SDK_REPORT_VERSION = "report_1.0.1_bate";
+    public static final String SDK_REPORT_VERSION = "Tangula_report_1.0.2_bate";
     private static final String TAG = YstenLogReport.class.getSimpleName();
     private static YstenLogReport mLogReport;
     private boolean isInited = false;
@@ -103,6 +103,7 @@ public class YstenLogReport {
      * 上报的最大值
      */
     private static long REPORT_MAX = 5000;
+    // startReport 0 1
     private int startReport = 0;
     private int heartTime = 24 * 60;
     private static String appId;

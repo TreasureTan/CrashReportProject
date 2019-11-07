@@ -13,7 +13,7 @@ import com.ysten.ystenreport.crash.CrashHandler;
 
 
 public class MainActivity extends AppCompatActivity {
-    private static final String test_host = "http://tangula.ysten.com:8091/dev/v1/";
+    private static final String test_host = "http://tangula.ysten.com:8091/apm/v1/";
     private ImageView imageView;
     @Override
     protected void onCreate(Bundle savedInstanceState) {

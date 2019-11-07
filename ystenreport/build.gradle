@@ -8,7 +8,7 @@ android {
         minSdkVersion 15
         targetSdkVersion 28
         versionCode 5
-        versionName "1.0.1_bate"
+        versionName "1.0.2_bate"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles 'consumer-rules.pro'
@@ -25,7 +25,7 @@ android {
     }
     android.libraryVariants.all { variant ->
         variant.outputs.all {
-            def releaseApkName = 'ystenreport_' + defaultConfig.getVersionName() + '.aar'
+            def releaseApkName = 'TangulaReport_' + defaultConfig.getVersionName() + '.aar'
             outputFileName = releaseApkName
         }
     }
